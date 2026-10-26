@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Karty Dżentelmenów 18+</title>
+<style>
+  :root {
+    --bg: #0e0e13; --panel: #1a1a22; --line: #2c2c38; --text: #f2f2f5; --muted: #9a9aad;
+    --accent: #ff3d6e; --accent2: #ffc83d; --ok: #37d67a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  body { min-height: 100vh; }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: clamp(2rem, 7vw, 3.4rem); line-height: 1; margin: 24px 0 8px; letter-spacing: -0.02em; }
+  .r18 { background: var(--accent); color: #fff; border-radius: 10px; padding: 0 10px; font-size: .6em; vertical-align: middle; }
+  .sub { color: var(--muted); margin: 0 0 20px; }
+  input[type=text], select { width: 100%; padding: 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); color: var(--text); font-size: 1rem; margin-bottom: 10px; }
+  button { width: 100%; padding: 14px; border: 0; border-radius: 12px; background: var(--accent); color: #fff; font-size: 1rem; font-weight: 700; cursor: pointer; }
+  button.alt { background: var(--panel); border: 1px solid var(--line); }
+  button.small { width: auto; padding: 8px 12px; font-size: .85rem; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  .home { max-width: 440px; }
+  .chk { display: flex; gap: 10px; align-items: center; margin: 8px 0 14px; color: var(--muted); }
+  .or { text-align: center; color: var(--muted); margin: 14px 0; }
+  .topbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .code { font-size: .9rem; color: var(--muted); }
+  .code b { color: var(--accent2); letter-spacing: .15em; font-size: 1.1rem; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+  .chip { background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font-size: .9rem; }
+  .chip.judge { border-color: var(--accent2); }
+  .chip.off { opacity: .45; }
+  .chip b { color: var(--accent2); margin-left: 4px; }
+  .card { border-radius: 16px; padding: 18px; font-weight: 700; font-size: 1.05rem; line-height: 1.3; min-height: 120px; display: flex; align-items: center; }
+  .black { background: #000; color: #fff; border: 2px solid #3a3a48; font-size: 1.25rem; min-height: 150px; margin-bottom: 18px; }
+  .black .blank { border-bottom: 3px solid var(--accent); padding: 0 14px; }
+  .black .fill { background: #fff; color: #000; border-radius: 6px; padding: 1px 6px; }
+  .white { background: #fff; color: #111; cursor: pointer; border: 3px solid transparent; transition: transform .1s; }
+  .white:hover { transform: translateY(-2px); }
+  .white.sel { border-color: var(--accent); transform: translateY(-4px); }
+  .white.win { border-color: var(--ok); box-shadow: 0 0 0 3px rgba(55,214,122,.35); }
+  .white.dim { opacity: .45; cursor: default; }
+  .white small { display: block; font-weight: 500; color: #666; margin-top: 8px; font-size: .8rem; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-bottom: 14px; }
+  .msg { text-align: center; color: var(--muted); margin: 14px 0; }
+  .banner { text-align: center; font-size: 1.3rem; font-weight: 800; margin: 8px 0 16px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px; margin-bottom: 14px; }
+  ul.players { list-style: none; padding: 0; margin: 0 0 14px; }
+  ul.players li { padding: 10px 0; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; }
+  .tag { color: var(--accent2); font-size: .8rem; }
+  .big-code { font-size: 3rem; letter-spacing: .2em; color: var(--accent2); text-align: center; font-weight: 800; margin: 4px 0; }
+  .row { display: flex; gap: 8px; }
+  #toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: #000; border: 1px solid var(--accent); padding: 10px 16px; border-radius: 12px; display: none; max-width: 90vw; z-index: 9; }
+  #conn { position: fixed; top: 0; left: 0; right: 0; background: var(--accent); text-align: center; padding: 6px; font-size: .9rem; display: none; z-index: 10; }
+  ol.rank { padding-left: 22px; }
+  ol.rank li { padding: 6px 0; font-size: 1.1rem; }
+</style>
+</head>
+<body>
+<div id="conn">Rozłączono — łączę ponownie…</div>
+<div id="app"></div>
+<div id="toast"></div>
+
+<script>
+const $app = document.getElementById('app');
+let ws = null, S = null, selHand = null, selSub = null, lastKey = '';
+
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const ls = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} },
+};
+const getSession = () => { try { return JSON.parse(ls.get('kdz_session') || 'null'); } catch (e) { return null; } };
+const setSession = (s) => ls.set('kdz_session', s ? JSON.stringify(s) : null);
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(toast.t);
+  toast.t = setTimeout(() => (t.style.display = 'none'), 3500);
+}
+
+function send(o) {
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify(o));
+  else toast('Łączenie z serwerem… spróbuj za chwilę.');
+}
+
+function connect() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(proto + '://' + location.host);
+  ws.onopen = () => {
+    document.getElementById('conn').style.display = 'none';
+    const ses = getSession();
+    if (ses) ws.send(JSON.stringify({ type: 'resume', code: ses.code, token: ses.token }));
+  };
+  ws.onclose = () => {
+    document.getElementById('conn').style.display = 'block';
+    setTimeout(connect, 1500);
+  };
+  ws.onmessage = (ev) => {
+    let m;
+    try { m = JSON.parse(ev.data); } catch (e) { return; }
+    if (m.type === 'joined') setSession({ code: m.code, token: m.token });
+    else if (m.type === 'state') { S = m; render(); }
+    else if (m.type === 'notice') toast(m.message);
+    else if (m.type === 'error') {
+      toast(m.message);
+      if (m.fatal) { setSession(null); S = null; render(); }
+    } else if (m.type === 'left') { setSession(null); S = null; render(); }
+  };
+}
+
+function blackHtml(text, fill) {
+  const mid = fill == null ? '<span class="blank">_____</span>' : '<span class="fill">' + esc(fill) + '</span>';
+  return esc(text).split('___').join(mid);
+}
+
+function render() {
+  if (!S) return renderHome();
+  const key = S.code + ':' + S.round + ':' + S.phase;
+  if (key !== lastKey) { lastKey = key; selHand = null; selSub = null; }
+  if (S.phase === 'lobby') renderLobby(); else renderGame();
+}
+
+function renderHome() {
+  const params = new URLSearchParams(location.search);
+  const room = (params.get('room') || '').toUpperCase().slice(0, 4);
+  $app.innerHTML = `
+    <div class="wrap home">
+      <h1>Karty<br>Dżentelmenów <span class="r18">18+</span></h1>
+      <p class="sub">Imprezowa gra dla dorosłych. 3–6 graczy. Bez litości, bez wstydu.</p>
+      <label class="chk"><input type="checkbox" id="age" ${ls.get('kdz_age') ? 'checked' : ''}> Mam ukończone 18 lat</label>
+      <input type="text" id="name" maxlength="16" placeholder="Twoje imię / ksywa" value="${esc(ls.get('kdz_name') || '')}">
+      <button id="create">Utwórz pokój</button>
+      <div class="or">albo</div>
+      <input type="text" id="code" maxlength="4" placeholder="KOD POKOJU" value="${esc(room)}" style="text-transform:uppercase">
+      <button id="join" class="alt">Dołącz do pokoju</button>
+    </div>`;
+  const ok = () => {
+    if (!document.getElementById('age').checked) { toast('Ta gra jest tylko dla pełnoletnich.'); return null; }
+    const n = document.getElementById('name').value.trim();
+    if (!n) { toast('Podaj imię.'); return null; }
+    ls.set('kdz_age', '1'); ls.set('kdz_name', n);
+    return n;
+  };
+  document.getElementById('create').onclick = () => { const n = ok(); if (n) send({ type: 'create', name: n }); };
+  document.getElementById('join').onclick = () => {
+    const n = ok(); if (!n) return;
+    const c = document.getElementById('code').value.trim().toUpperCase();
+    if (c.length !== 4) return toast('Kod pokoju ma 4 litery.');
+    send({ type: 'join', code: c, name: n });
+  };
+}
+
+function leaveBtn() { return '<button class="small alt" id="leave">Wyjdź</button>'; }
+function bindLeave() {
+  const b = document.getElementById('leave');
+  if (b) b.onclick = () => { if (confirm('Na pewno wyjść z gry?')) send({ type: 'leave' }); };
+}
+
+function renderLobby() {
+  const isHost = S.hostId === S.you;
+  const link = location.origin + '/?room=' + S.code;
+  const n = S.players.filter((p) => p.connected).length;
+  $app.innerHTML = `
+    <div class="wrap">
+      <div class="topbar"><h2 style="margin:0">Poczekalnia</h2>${leaveBtn()}</div>
+      <div class="panel">
+        <div class="msg" style="margin:0">Kod pokoju — podaj go znajomym</div>
+        <div class="big-code">${esc(S.code)}</div>
+        <button class="alt" id="copy">Kopiuj link do zaproszenia</button>
+      </div>
+      <div class="panel">
+        <b>Gracze (${S.players.length}/${S.maxPlayers})</b>
+        <ul class="players">
+          ${S.players.map((p) => `<li><span>${esc(p.name)}${p.id === S.you ? ' (ty)' : ''}</span><span class="tag">${p.id === S.hostId ? 'host ' : ''}${p.connected ? '' : 'offline'}</span></li>`).join('')}
+        </ul>
+        ${isHost ? `
+          <label class="msg" style="display:block;text-align:left;margin:0 0 6px">Gra do punktów:</label>
+          <select id="target">
+            ${[5, 7, 10].map((t) => `<option value="${t}" ${t === S.target ? 'selected' : ''}>${t}</option>`).join('')}
+          </select>
+          <button id="start" ${n < S.minPlayers ? 'disabled' : ''}>Start gry</button>
+          ${n < S.minPlayers ? `<div class="msg">Potrzeba co najmniej ${S.minPlayers} graczy.</div>` : ''}
+        ` : '<div class="msg">Czekamy, aż host wystartuje grę…</div>'}
+      </div>
+    </div>`;
+  bindLeave();
+  document.getElementById('copy').onclick = () => {
+    if (navigator.clipboard) navigator.clipboard.writeText(link).then(() => toast('Link skopiowany.'), () => toast(link));
+    else toast(link);
+  };
+  const st = document.getElementById('start');
+  if (st) st.onclick = () => send({ type: 'start', target: Number(document.getElementById('target').value) });
+}
+
+function chips() {
+  return S.players.map((p) => {
+    const status = S.phase === 'submitting' && p.id !== S.judgeId ? (p.played ? ' ✓' : ' …') : '';
+    return `<div class="chip ${p.id === S.judgeId ? 'judge' : ''} ${p.connected ? '' : 'off'}">${p.id === S.judgeId ? '👑 ' : ''}${esc(p.name)}<b>${p.score}</b>${status}</div>`;
+  }).join('');
+}
+
+function renderGame() {
+  const isJudge = S.judgeId === S.you;
+  const isHost = S.hostId === S.you;
+  const judge = S.players.find((p) => p.id === S.judgeId);
+  let fill = null;
+  let body = '';
+
+  if (S.phase === 'submitting') {
+    const need = S.players.filter((p) => p.id !== S.judgeId && p.connected);
+    const done = need.filter((p) => p.played).length;
+    const me = S.players.find((p) => p.id === S.you);
+    if (isJudge) {
+      body = `<div class="msg">Jesteś sędzią 👑 Czekasz na karty od graczy (${done}/${need.length})…</div>`;
+    } else if (me && me.played) {
+      body = `<div class="msg">Karta wysłana. Czekamy na resztę (${done}/${need.length})…</div>`;
+    } else {
+      if (selHand != null) fill = S.hand[selHand];
+      body = `
+        <div class="msg">Wybierz kartę, która najbardziej pasuje (i najbardziej szokuje)</div>
+        <div class="grid">${S.hand.map((c, i) => `<div class="card white ${i === selHand ? 'sel' : ''}" data-h="${i}">${esc(c)}</div>`).join('')}</div>
+        <button id="play" ${selHand == null ? 'disabled' : ''}>Zagraj kartę</button>`;
+    }
+  } else if (S.phase === 'judging') {
+    if (selSub != null) fill = S.submissions[selSub];
+    body = `
+      <div class="msg">${isJudge ? 'Wybierz najśmieszniejszą odpowiedź:' : `Sędzia (${esc(judge ? judge.name : '?')}) wybiera…`}</div>
+      <div class="grid">${S.submissions.map((c, i) => `<div class="card white ${i === selSub ? 'sel' : ''} ${isJudge ? '' : 'dim'}" data-s="${i}">${esc(c)}</div>`).join('')}</div>
+      ${isJudge ? `<button id="pick" ${selSub == null ? 'disabled' : ''}>To wygrywa!</button>` : ''}`;
+  } else if (S.phase === 'result') {
+    fill = S.submissions[S.winnerIdx];
+    body = `
+      <div class="banner">🏆 Punkt dla ${esc(S.authors[S.winnerIdx])}!</div>
+      <div class="grid">${S.submissions.map((c, i) => `<div class="card white ${i === S.winnerIdx ? 'win' : 'dim'}">${esc(c)}<small>${esc(S.authors[i])}</small></div>`).join('')}</div>
+      ${(isJudge || isHost) ? '<button id="next">Następna runda</button>' : '<div class="msg">Czekamy na następną rundę…</div>'}`;
+  } else if (S.phase === 'ended') {
+    fill = S.submissions[S.winnerIdx];
+    const ranking = S.players.slice().sort((a, b) => b.score - a.score);
+    body = `
+      <div class="banner">🎉 Wygrywa ${esc(ranking[0].name)}!</div>
+      <div class="panel"><ol class="rank">${ranking.map((p) => `<li>${esc(p.name)} — <b>${p.score}</b> pkt</li>`).join('')}</ol></div>
+      ${isHost ? '<button id="restart">Zagraj jeszcze raz</button>' : '<div class="msg">Host może wystartować kolejną grę.</div>'}`;
+  }
+
+  $app.innerHTML = `
+    <div class="wrap">
+      <div class="topbar">
+        <div class="code">Pokój <b>${esc(S.code)}</b> · runda ${S.round} · do ${S.target} pkt</div>
+        ${leaveBtn()}
+      </div>
+      <div class="chips">${chips()}</div>
+      <div class="card black">${blackHtml(S.black, fill)}</div>
+      ${body}
+    </div>`;
+
+  bindLeave();
+  document.querySelectorAll('[data-h]').forEach((el) => (el.onclick = () => { selHand = Number(el.dataset.h); render(); }));
+  document.querySelectorAll('[data-s]').forEach((el) => (el.onclick = () => { if (isJudge) { selSub = Number(el.dataset.s); render(); } }));
+  const on = (id, fn) => { const b = document.getElementById(id); if (b) b.onclick = fn; };
+  on('play', () => { if (selHand != null) send({ type: 'play', index: selHand }); });
+  on('pick', () => { if (selSub != null) send({ type: 'pick', index: selSub }); });
+  on('next', () => send({ type: 'next' }));
+  on('restart', () => send({ type: 'restart' }));
+}
+
+render();
+connect();
+</script>
+</body>
+</html>
